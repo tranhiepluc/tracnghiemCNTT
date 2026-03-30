@@ -270,6 +270,7 @@ function renderQuiz() {
     <div class="quiz-header">
       <div>
         <div class="quiz-title">${mod.icon} Module ${state.currentModule}: ${mod.title}</div>
+        <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">⌨️ Phím tắt: <b>A B C D</b> chọn đáp án &nbsp;|&nbsp; <b>→ Enter</b> câu tiếp &nbsp;|&nbsp; <b>←</b> câu trước</div>
       </div>
       <div class="quiz-stats">
         <div class="stat"><div class="val">${state.currentQ+1}/${total}</div><div class="lbl">Câu hỏi</div></div>
@@ -348,6 +349,39 @@ function render() {
 }
 
 render();
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+  if (state.view !== 'quiz') return;
+  const q = state.questions[state.currentQ];
+  const answered = state.answers[state.currentQ];
+  const total = state.questions.length;
+
+  switch(e.key) {
+    case 'ArrowRight':
+    case 'Enter':
+      // Next question
+      if (state.currentQ < total - 1) { state.currentQ++; render(); }
+      else if (Object.keys(state.answers).length === total) { finishQuiz(); }
+      break;
+    case 'ArrowLeft':
+      // Previous question
+      if (state.currentQ > 0) { state.currentQ--; render(); }
+      break;
+    case 'a': case 'A':
+      if (!answered) { selectAnswer('A'); }
+      break;
+    case 'b': case 'B':
+      if (!answered) { selectAnswer('B'); }
+      break;
+    case 'c': case 'C':
+      if (!answered) { selectAnswer('C'); }
+      break;
+    case 'd': case 'D':
+      if (!answered) { selectAnswer('D'); }
+      break;
+  }
+});
 </script>
 </body>
 </html>

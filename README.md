@@ -147,11 +147,19 @@ function startModule(mod) {
   const qs = QUESTIONS_DATA[mod] || [];
   // Only first 120
   state.currentModule = mod;
-  state.questions = shuffle(qs).slice(0, 120).map(q => ({
-    ...q,
-    optKeys: shuffle(['A','B','C','D']),
-    correctKey: 'A', // first option is always correct in these MCQ banks
-  }));
+  state.questions = shuffle(qs).slice(0, 120).map(q => {
+    // Shuffle the option texts, reassign to A/B/C/D in order
+    const originalKeys = ['A','B','C','D'].filter(k => q.opts[k]);
+    const shuffledTexts = shuffle(originalKeys.map(k => q.opts[k]));
+    const newOpts = {};
+    const labels = ['A','B','C','D'];
+    // correctKey is always 'A' in original (first option = correct answer)
+    const correctText = q.opts['A'];
+    shuffledTexts.forEach((text, i) => { newOpts[labels[i]] = text; });
+    // Find which new label got the correct text
+    const newCorrectKey = labels[shuffledTexts.indexOf(correctText)];
+    return { ...q, opts: newOpts, optKeys: labels, correctKey: newCorrectKey };
+  });
   state.answers = {};
   state.currentQ = 0;
   state.view = 'quiz';
@@ -243,7 +251,7 @@ function renderQuiz() {
     const correct = answered === q.correctKey;
     resultBadge = correct
       ? `<div class="result-badge correct-badge">✅ Đúng rồi!</div>`
-      : `<div class="result-badge wrong-badge">❌ Sai! Đáp án đúng: ${q.correctKey}. ${q.opts[q.correctKey]}</div>`;
+      : `<div class="result-badge wrong-badge">❌ Sai! Đáp án đúng là <strong>${q.correctKey}</strong>: ${q.opts[q.correctKey]}</div>`;
   }
 
   // Jump nav
@@ -343,4 +351,3 @@ render();
 </script>
 </body>
 </html>
-

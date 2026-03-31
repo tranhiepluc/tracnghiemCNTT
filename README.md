@@ -36,7 +36,7 @@
   .progress-bar-wrap { background: #e2e8f0; border-radius: 99px; height: 6px; margin-bottom: 16px; }
   .progress-bar { background: linear-gradient(90deg, #3b82f6, #1e3a8a); border-radius: 99px; height: 6px; transition: width 0.4s; }
 
-  .question-card { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 16px; }
+  .question-card { background: white; border-radius: 14px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); margin-bottom: 16px; min-height: 320px; }
   .question-num { font-size: 0.8rem; color: #64748b; font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
   .question-text { font-size: 1rem; font-weight: 600; color: #1a202c; line-height: 1.6; margin-bottom: 20px; }
 
@@ -515,11 +515,17 @@ function renderResult() {
 
 function render() {
   const app = document.getElementById('app');
+  const prevView = state._prevView;
   if (state.view === 'home') app.innerHTML = renderHome();
   else if (state.view === 'quiz') app.innerHTML = renderQuiz();
   else if (state.view === 'result') app.innerHTML = renderResult();
-  // Scroll to top
-  window.scrollTo(0, 0);
+  state._prevView = state.view;
+
+  // Chi scroll ve dau khi doi view (home->quiz, quiz->result)
+  // Khi chuyen cau trong quiz, giu nguyen vi tri scroll
+  if (prevView !== state.view) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 }
 
 render();

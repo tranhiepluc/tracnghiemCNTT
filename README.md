@@ -93,10 +93,31 @@
   .jn-btn.answered-wrong { background: #fecaca; color: #b91c1c; }
   .jn-btn.answered-unanswered { background: #fed7aa; color: #c2410c; }
 
+  /* History */
+  .history-section { margin-top: 32px; }
+  .history-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.07); font-size: 0.85rem; }
+  .history-table th { background: #1e3a8a; color: white; padding: 10px 14px; text-align: left; font-weight: 700; }
+  .history-table td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; color: #374151; }
+  .history-table tr:last-child td { border-bottom: none; }
+  .history-table tr:hover td { background: #f8fafc; }
+  .badge-score { display: inline-block; padding: 3px 10px; border-radius: 99px; font-weight: 700; font-size: 0.8rem; }
+  .badge-excellent { background: #dcfce7; color: #15803d; }
+  .badge-good { background: #dbeafe; color: #1d4ed8; }
+  .badge-pass { background: #fef3c7; color: #b45309; }
+  .badge-fail { background: #fee2e2; color: #b91c1c; }
+  .btn-danger { background: #fee2e2; color: #b91c1c; }
+  .btn-danger:hover { background: #fecaca; }
+
+  .history-empty { text-align: center; padding: 24px; color: #94a3b8; font-size: 0.9rem; }
+  .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+  .module-best { font-size: 0.75rem; color: #3b82f6; font-weight: 600; margin-top: 4px; }
+
   @media (max-width: 600px) {
     .module-grid { grid-template-columns: 1fr 1fr; }
     .score-details { gap: 16px; }
     .quiz-header { flex-direction: column; align-items: flex-start; }
+    .history-table { font-size: 0.78rem; }
+    .history-table th, .history-table td { padding: 7px 8px; }
   }
 </style>
 </head>
@@ -196,6 +217,53 @@ function finishQuiz() {
   render();
 }
 
+function submitQuiz() {
+  const total = state.questions.length;
+  const answeredCount = Object.keys(state.answers).length;
+  const unanswered = total - answeredCount;
+  if (unanswered > 0) {
+    showSubmitModal(answeredCount, unanswered, total);
+  } else {
+    finishQuiz();
+  }
+}
+
+function showSubmitModal(answered, unanswered, total) {
+  // Remove existing modal if any
+  const old = document.getElementById('submit-modal');
+  if (old) old.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'submit-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML = `
+    <div style="background:white;border-radius:16px;padding:32px 28px;max-width:380px;width:90%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.2);">
+      <div style="font-size:2.5rem;margin-bottom:12px;">📋</div>
+      <h3 style="color:#1e3a8a;font-size:1.15rem;margin-bottom:16px;">Xác nhận nộp bài</h3>
+      <div style="display:flex;justify-content:center;gap:24px;margin-bottom:20px;">
+        <div style="text-align:center;">
+          <div style="font-size:1.6rem;font-weight:800;color:#22c55e;">${answered}</div>
+          <div style="font-size:0.8rem;color:#64748b;">Đã trả lời</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:1.6rem;font-weight:800;color:#f97316;">${unanswered}</div>
+          <div style="font-size:0.8rem;color:#64748b;">Chưa làm</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:1.6rem;font-weight:800;color:#1e3a8a;">${total}</div>
+          <div style="font-size:0.8rem;color:#64748b;">Tổng câu</div>
+        </div>
+      </div>
+      <p style="color:#475569;font-size:0.9rem;margin-bottom:24px;">Câu chưa làm sẽ tính là <strong style="color:#ef4444">sai</strong>. Bạn có chắc muốn nộp bài không?</p>
+      <div style="display:flex;gap:12px;justify-content:center;">
+        <button onclick="document.getElementById('submit-modal').remove()" style="padding:10px 22px;border-radius:8px;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;background:#e2e8f0;color:#374151;">Làm tiếp</button>
+        <button onclick="document.getElementById('submit-modal').remove(); finishQuiz();" style="padding:10px 22px;border-radius:8px;border:none;cursor:pointer;font-size:0.9rem;font-weight:600;background:#22c55e;color:white;">Nộp bài</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
 function goHome() {
   state.view = 'home';
   render();
@@ -203,6 +271,96 @@ function goHome() {
 
 function retryModule() {
   startModule(state.currentModule);
+}
+
+// ── History helpers ──────────────────────────────────────────
+const HISTORY_KEY = 'cntt_quiz_history';
+
+function loadHistory() {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+  } catch(e) { return []; }
+}
+
+function saveResult(modId, correct, total) {
+  const history = loadHistory();
+  const pct = Math.round((correct / total) * 100);
+  history.unshift({
+    modId,
+    modTitle: MODULE_INFO[modId].title,
+    correct,
+    total,
+    pct,
+    date: new Date().toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }),
+  });
+  // Keep last 100 records
+  if (history.length > 100) history.length = 100;
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+}
+
+function clearHistory() {
+  if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử không?')) {
+    localStorage.removeItem(HISTORY_KEY);
+    render();
+  }
+}
+
+function getBadgeClass(pct) {
+  return pct >= 90 ? 'badge-excellent' : pct >= 70 ? 'badge-good' : pct >= 50 ? 'badge-pass' : 'badge-fail';
+}
+
+function renderHistorySection() {
+  const history = loadHistory();
+  if (history.length === 0) {
+    return `<div class="history-section">
+      <div class="history-header">
+        <p class="section-title" style="margin:0">📋 Lịch sử kết quả</p>
+      </div>
+      <div class="history-empty">Chưa có kết quả nào. Hãy bắt đầu làm bài!</div>
+    </div>`;
+  }
+
+  // Compute best per module
+  const bestByMod = {};
+  history.forEach(h => {
+    if (!bestByMod[h.modId] || h.pct > bestByMod[h.modId]) bestByMod[h.modId] = h.pct;
+  });
+
+  const rows = history.map((h, i) => `
+    <tr>
+      <td style="color:#94a3b8;font-size:0.75rem;">${i+1}</td>
+      <td>${h.date}</td>
+      <td>Module ${h.modId}: ${h.modTitle}</td>
+      <td><strong style="color:#22c55e">${h.correct}</strong> / ${h.total}</td>
+      <td><span class="badge-score ${getBadgeClass(h.pct)}">${h.pct}%</span></td>
+    </tr>
+  `).join('');
+
+  // Summary cards per module
+  const summaryCards = Object.entries(MODULE_INFO).map(([mod, info]) => {
+    const modHistory = history.filter(h => String(h.modId) === mod);
+    if (modHistory.length === 0) return '';
+    const best = Math.max(...modHistory.map(h => h.pct));
+    const avg = Math.round(modHistory.reduce((s, h) => s + h.pct, 0) / modHistory.length);
+    return `<div style="background:white;border-radius:10px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.07);min-width:160px;flex:1;">
+      <div style="font-size:1.1rem;">${info.icon}</div>
+      <div style="font-weight:700;font-size:0.82rem;color:#1e3a8a;margin:4px 0 2px;">Module ${mod}</div>
+      <div class="module-best">🏆 Cao nhất: <span class="badge-score ${getBadgeClass(best)}">${best}%</span></div>
+      <div style="font-size:0.75rem;color:#64748b;">Trung bình: ${avg}% &nbsp;|&nbsp; Số lần: ${modHistory.length}</div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  return `<div class="history-section">
+    <div class="history-header">
+      <p class="section-title" style="margin:0">📋 Lịch sử kết quả (${history.length} lần làm)</p>
+      <button class="btn btn-danger" onclick="clearHistory()" style="font-size:0.8rem;padding:6px 14px;">🗑️ Xóa lịch sử</button>
+    </div>
+    ${summaryCards ? `<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">${summaryCards}</div>` : ''}
+    <table class="history-table">
+      <thead><tr><th>#</th><th>Thời gian</th><th>Module</th><th>Kết quả</th><th>Điểm</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
 }
 
 function renderHome() {
@@ -218,6 +376,7 @@ function renderHome() {
         </div>
       `).join('')}
     </div>
+    ${renderHistorySection()}
   `;
 }
 
@@ -265,16 +424,18 @@ function renderQuiz() {
   }).join('');
 
   const allAnswered = answeredCount === total;
+  const unanswered = total - answeredCount;
 
   return `
     <div class="quiz-header">
       <div>
         <div class="quiz-title">${mod.icon} Module ${state.currentModule}: ${mod.title}</div>
-        <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">⌨️ Phím tắt: <b>A B C D</b> chọn đáp án &nbsp;|&nbsp; <b>→ Enter</b> câu tiếp &nbsp;|&nbsp; <b>←</b> câu trước</div>
+        <div style="font-size:0.75rem;color:#94a3b8;margin-top:4px;">&#9000; Ph&#237;m t&#7855;t: <b>A B C D</b> ch&#7885;n &#273;&#225;p &#225;n &nbsp;|&nbsp; <b>&#8594; Enter</b> c&#226;u ti&#7871;p &nbsp;|&nbsp; <b>&#8592;</b> c&#226;u tr&#432;&#7899;c</div>
       </div>
       <div class="quiz-stats">
-        <div class="stat"><div class="val">${state.currentQ+1}/${total}</div><div class="lbl">Câu hỏi</div></div>
-        <div class="stat"><div class="val">${answeredCount}</div><div class="lbl">Đã trả lời</div></div>
+        <div class="stat"><div class="val">${state.currentQ+1}/${total}</div><div class="lbl">C&#226;u h&#7887;i</div></div>
+        <div class="stat"><div class="val">${answeredCount}</div><div class="lbl">&#272;&#227; tr&#7843; l&#7901;i</div></div>
+        <div class="stat"><div class="val" style="color:#f97316">${unanswered}</div><div class="lbl">Ch&#432;a l&#224;m</div></div>
       </div>
     </div>
 
@@ -283,22 +444,22 @@ function renderQuiz() {
     </div>
 
     <div class="jump-nav">
-      <div class="jump-nav-title">Nhảy đến câu: <span style="color:#22c55e">■</span> Đúng &nbsp;<span style="color:#ef4444">■</span> Sai &nbsp;<span style="color:#f97316">■</span> Chưa trả lời đã qua</div>
+      <div class="jump-nav-title">Nh&#7843;y &#273;&#7871;n c&#226;u: <span style="color:#22c55e">&#9632;</span> &#272;&#250;ng &nbsp;<span style="color:#ef4444">&#9632;</span> Sai &nbsp;<span style="color:#f97316">&#9632;</span> Ch&#432;a tr&#7843; l&#7901;i &#273;&#227; qua</div>
       <div class="jump-nav-grid">${jumpBtns}</div>
     </div>
 
     <div class="question-card">
-      <div class="question-num">Câu ${state.currentQ + 1} / ${total}</div>
+      <div class="question-num">C&#226;u ${state.currentQ + 1} / ${total}</div>
       <div class="question-text">${q.q}</div>
       <div class="options">${optionHTML}</div>
       ${resultBadge}
     </div>
 
     <div class="nav-btns">
-      <button class="btn btn-secondary" onclick="goHome()">🏠 Trang chủ</button>
-      ${state.currentQ > 0 ? `<button class="btn btn-secondary" onclick="prevQ()">← Trước</button>` : ''}
-      ${state.currentQ < total-1 ? `<button class="btn btn-primary" onclick="nextQ()">Tiếp theo →</button>` : ''}
-      ${allAnswered ? `<button class="btn btn-success" onclick="finishQuiz()">🏁 Xem kết quả</button>` : ''}
+      <button class="btn btn-secondary" onclick="goHome()">&#127968; Trang ch&#7911;</button>
+      ${state.currentQ > 0 ? '<button class="btn btn-secondary" onclick="prevQ()">&#8592; Tr&#432;&#7899;c</button>' : ''}
+      ${state.currentQ < total-1 ? '<button class="btn btn-primary" onclick="nextQ()">Ti&#7871;p theo &#8594;</button>' : ''}
+      <button class="btn btn-success" onclick="submitQuiz()">${allAnswered ? '&#127937; Xem k&#7871;t qu&#7843;' : '&#128228; N&#7897;p b&#224;i'}</button>
     </div>
   `;
 }
@@ -314,11 +475,20 @@ function renderResult() {
   const pct = Math.round((correct / total) * 100);
   const mod = MODULE_INFO[state.currentModule];
 
+  // Save to history
+  saveResult(state.currentModule, correct, total);
+
   let circleClass = pct >= 90 ? 'excellent' : pct >= 70 ? 'good' : pct >= 50 ? 'pass' : 'fail';
   let msg = pct >= 90 ? '🎉 Xuất sắc! Bạn nắm vững kiến thức module này.' 
            : pct >= 70 ? '👍 Tốt! Tiếp tục ôn luyện để đạt điểm cao hơn.'
            : pct >= 50 ? '📚 Cố gắng hơn nhé! Hãy ôn lại các phần còn yếu.'
            : '💪 Cần ôn tập thêm. Đừng nản, hãy thử lại!';
+
+  // Load history to show best for this module
+  const history = loadHistory();
+  const modHistory = history.filter(h => String(h.modId) === String(state.currentModule));
+  const best = modHistory.length > 0 ? Math.max(...modHistory.map(h => h.pct)) : pct;
+  const attempts = modHistory.length;
 
   return `
     <div class="score-card">
@@ -330,6 +500,10 @@ function renderResult() {
         <div class="score-detail"><div class="n red">${wrong}</div><div class="lbl">Câu sai</div></div>
         <div class="score-detail"><div class="n" style="color:#94a3b8">${unanswered}</div><div class="lbl">Bỏ qua</div></div>
         <div class="score-detail"><div class="n" style="color:#1e3a8a">${total}</div><div class="lbl">Tổng câu</div></div>
+      </div>
+      <div style="background:#f8fafc;border-radius:10px;padding:12px 20px;margin-bottom:20px;display:inline-flex;gap:24px;flex-wrap:wrap;justify-content:center;">
+        <div><span style="font-size:0.8rem;color:#64748b;">🏆 Điểm cao nhất module này</span><br><strong style="font-size:1.2rem;color:#1e3a8a;">${best}%</strong></div>
+        <div><span style="font-size:0.8rem;color:#64748b;">📊 Số lần đã làm</span><br><strong style="font-size:1.2rem;color:#1e3a8a;">${attempts} lần</strong></div>
       </div>
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="retryModule()">🔄 Làm lại</button>
